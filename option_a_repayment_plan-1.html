@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Option A: Corrected Repayment Plan</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --primary-light: #e8f0fe;
+            --success: #137333;
+            --success-light: #e6f4ea;
+            --danger: #c5221f;
+            --danger-light: #fce8e6;
+            --text-main: #202124;
+            --text-muted: #5f6368;
+            --bg-page: #f4f6f9;
+            --bg-card: #ffffff;
+            --border: #dadce0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.5;
+            color: var(--text-main);
+            background-color: var(--bg-page);
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 1150px;
+            margin: 0 auto;
+            background-color: var(--bg-card);
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        header { margin-bottom: 20px; border-bottom: 2px solid var(--primary-light); padding-bottom: 15px; }
+        h1 { color: var(--primary); font-size: 1.6em; font-weight: 700; }
+        .subtitle { color: var(--text-muted); font-size: 0.92em; margin-top: 6px; }
+        .corrections-card {
+            background-color: var(--danger-light); border: 1px solid #f5c2c0;
+            padding: 16px 18px; border-radius: 8px; margin: 22px 0; font-size: 0.87em; color: #7a2119;
+        }
+        .corrections-card strong { color: var(--danger); }
+        .corrections-card ul { margin: 8px 0 0 18px; }
+        .corrections-card li { margin-bottom: 4px; }
+        .control-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 25px;
+        }
+        label { display: block; font-weight: 600; font-size: 0.88em; margin-bottom: 6px; }
+        .range-box { display: flex; align-items: center; gap: 12px; }
+        input[type="range"] { flex-grow: 1; accent-color: var(--primary); height: 6px; }
+        .val-badge {
+            font-family: monospace; font-size: 0.9em; font-weight: bold;
+            background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+            min-width: 70px; text-align: right;
+        }
+        .table-container { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.88em; text-align: right; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #e8eaed; }
+        th { background-color: var(--bg-page); color: var(--text-muted); font-weight: 600; font-size: 0.82em; }
+        td:first-child, th:first-child { text-align: left; font-weight: 500; }
+        td { font-family: monospace; font-size: 1.02em; }
+        .text-label { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        .section-gap td { border-top: 2px solid var(--border); }
+        .highlight-row { background-color: var(--primary-light); font-weight: bold; }
+        .highlight-row td { color: var(--primary-dark); }
+        .infusion-row { background-color: #fff8e1; }
+        .neg-val { color: var(--danger); }
+        .pos-val { color: var(--success); }
+        .info-card {
+            background-color: var(--success-light); border: 1px solid #c3e6cb;
+            padding: 15px; border-radius: 6px; font-size: 0.88em; color: #155724; margin-top: 25px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Equal Annual Debt Service — Repayment Plan</h1>
+        <div class="subtitle">USD 2,070M principal · 6% interest · 10-year equal debt service (no moratorium)</div>
+    </header>
+
+    <div class="control-bar">
+        <div class="control-group">
+            <label for="reinvestSlider">Reinvestment Yield on Retained Profits (%)</label>
+            <div class="range-box">
+                <input type="range" id="reinvestSlider" min="0" max="15" value="10" step="0.5">
+                <span class="val-badge" id="reinvestVal">10.0%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Financial Framework Line Item (USD Millions)</th>
+                    <th>Year 1</th><th>Year 2</th><th>Year 3</th><th>Year 4</th><th>Year 5</th>
+                    <th>Year 6</th><th>Year 7</th><th>Year 8</th><th>Year 9</th><th>Year 10</th>
+                </tr>
+            </thead>
+            <tbody id="matrixBody"></tbody>
+        </table>
+    </div>
+
+    <div class="info-card" id="infoCard"></div>
+</div>
+
+<script>
+    const reinvestSlider = document.getElementById('reinvestSlider');
+    const reinvestVal = document.getElementById('reinvestVal');
+    const matrixBody = document.getElementById('matrixBody');
+    const infoCard = document.getElementById('infoCard');
+
+    const CAPITAL_BASE = 2070;
+    const TAX_RATE = 0.17;
+    const RATE = 0.06;
+    const AMORT = CAPITAL_BASE / 10; // 207.0 straight-line over 10 years
+    const INVOICE = 281.25; // equal annual debt service, as specified
+    const REV = [100.0,150.0,220.0,300.0,450.0,600.0,620.0,640.0,660.0,680.0];
+    const OPEX = [40.0,60.0,80.0,100.0,150.0,200.0,210.0,220.0,230.0,240.0];
+
+    function numFormatter(val, enableColor = false) {
+        const s = Math.abs(val).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1});
+        if (val < -0.05) return `<span class="${enableColor ? 'neg-val' : ''}">(${s})</span>`;
+        return `<span class="${enableColor ? 'pos-val' : ''}">${Math.abs(val) < 0.05 ? '0.0' : s}</span>`;
+    }
+
+    function computeSchedule() {
+        const reinvestRate = parseFloat(reinvestSlider.value) / 100;
+        reinvestVal.textContent = (reinvestRate * 100).toFixed(1) + "%";
+
+        let balance = CAPITAL_BASE;
+        let reserve = 0;
+        const data = {rev:[],opex:[],amort:[],ebit:[],tax:[],npat:[],ocf:[],interest:[],principal:[],reinvest:[],delta:[],infusion:[],reserve:[]};
+
+        for (let t = 0; t < 10; t++) {
+            const rev = REV[t], opex = OPEX[t];
+            const ebit = rev - opex - AMORT;
+            const tax = ebit > 0 ? ebit * TAX_RATE : 0;
+            const npat = ebit - tax;
+            const ocf = npat + AMORT;
+
+            const interest = balance * RATE;
+            const principal = INVOICE - interest;
+            balance -= principal;
+            if (Math.abs(balance) < 0.1) balance = 0;
+
+            const reinvestGain = reserve > 0 ? reserve * reinvestRate : 0;
+            const delta = ocf + reinvestGain - INVOICE;
+            const preInfusion = reserve + delta;
+            const infusion = Math.max(0, -preInfusion);
+            reserve = preInfusion + infusion;
+
+            data.rev.push(rev); data.opex.push(opex); data.amort.push(AMORT);
+            data.ebit.push(ebit); data.tax.push(tax); data.npat.push(npat); data.ocf.push(ocf);
+            data.interest.push(interest); data.principal.push(principal); data.reinvest.push(reinvestGain);
+            data.delta.push(delta); data.infusion.push(infusion); data.reserve.push(reserve);
+        }
+
+        matrixBody.innerHTML = `
+            <tr><td class="text-label">Gross Operating Revenues</td>${data.rev.map(v=>`<td>${numFormatter(v)}</td>`).join('')}</tr>
+            <tr><td class="text-label">Direct Operating Expenses</td>${data.opex.map(v=>`<td>${numFormatter(-v,true)}</td>`).join('')}</tr>
+            <tr><td class="text-label">Asset Amortization Shield</td>${data.amort.map(v=>`<td>${numFormatter(-v,true)}</td>`).join('')}</tr>
+            <tr class="section-gap"><td class="text-label"><strong>EBIT</strong></td>${data.ebit.map(v=>`<td>${numFormatter(v,true)}</td>`).join('')}</tr>
+            <tr><td class="text-label">Singapore Corporate Tax (17%)</td>${data.tax.map(v=>`<td>${numFormatter(-v,true)}</td>`).join('')}</tr>
+            <tr><td class="text-label"><strong>Net Profit After Tax</strong></td>${data.npat.map(v=>`<td>${numFormatter(v,true)}</td>`).join('')}</tr>
+            <tr class="highlight-row"><td class="text-label">Net Operating Cash Flow</td>${data.ocf.map(v=>`<td>${numFormatter(v,true)}</td>`).join('')}</tr>
+            <tr class="section-gap"><td class="text-label">Reinvestment Treasury Gains</td>${data.reinvest.map(v=>`<td>${numFormatter(v,true)}</td>`).join('')}</tr>
+            <tr><td class="text-label">Active Interest Service (6%)</td>${data.interest.map(v=>`<td>${numFormatter(-v,true)}</td>`).join('')}</tr>
+            <tr><td class="text-label">Principal Repayment Outflow</td>${data.principal.map(v=>`<td>${numFormatter(-v,true)}</td>`).join('')}</tr>
+            <tr><td class="text-label">Aggregate Bank Invoice</td>${data.rev.map(()=>`<td>${numFormatter(-INVOICE,true)}</td>`).join('')}</tr>
+            <tr class="highlight-row"><td class="text-label">Net Operational Cash Delta</td>${data.delta.map(v=>`<td>${numFormatter(v,true)}</td>`).join('')}</tr>
+            <tr class="infusion-row"><td class="text-label">⚡ Promoter Capital Infusion</td>${data.infusion.map(v=>`<td>${v>0.05?'+'+numFormatter(v):numFormatter(0)}</td>`).join('')}</tr>
+            <tr class="highlight-row"><td class="text-label">Consolidated Cash Reserve</td>${data.reserve.map(v=>`<td>${numFormatter(v,true)}</td>`).join('')}</tr>
+        `;
+
+        const totalInfusion = data.infusion.reduce((a,b)=>a+b,0);
+        const firstPositiveYear = data.delta.findIndex(v => v > 0) + 1;
+        const finalReserve = data.reserve[9];
+
+        infoCard.innerHTML = `<strong>Corrected Capital Flow Summary:</strong> Promoters inject a total of
+            USD ${totalInfusion.toFixed(1)}M in equity across Years 1–${data.infusion.filter(v=>v>0.05).length}
+            to keep the cash reserve non-negative while the fixed USD ${INVOICE.toFixed(2)}M annual bank invoice
+            is serviced from Year 1. The operation first generates a genuine positive net cash delta in
+            <strong>Year ${firstPositiveYear}</strong>, after which retained cash compounds at
+            ${(reinvestRate*100).toFixed(1)}% per year. By Year 10, the debt is fully amortized and the
+            Consolidated Cash Reserve reaches USD ${finalReserve.toFixed(1)}M.`;
+    }
+
+    reinvestSlider.addEventListener('input', computeSchedule);
+    computeSchedule();
+</script>
+
+</body>
+</html>
